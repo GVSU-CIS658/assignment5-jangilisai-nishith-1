@@ -65,8 +65,42 @@
         </template>
       </li>
     </ul>
-    <input type="text" placeholder="Beverage Name" />
-    <button>🍺 Make Beverage</button>
+
+    <input v-model="name" type="text" placeholder="Beverage Name" />
+    <button @click="handleMakeBeverage" :disabled="!authStore.user">🍺 Make Beverage</button>
+
+     <ul>
+      <!-- Custom Beverages  -->
+      <li>
+        <template v-for="cb in beverageStore.beverages" :key="cb.id">
+          <label>
+            <input
+              type="radio"
+              name="customBeverage"
+              :id="`${cb.id}`"
+              :checked="beverageStore.currentBeverage?.id === cb.id"
+              @change="beverageStore.showBeverage(cb.id)"
+            />
+            {{ cb.name }}
+          </label>
+        </template>
+      </li>
+    </ul>
+
+    <div style="margin-bottom: 12px">
+      <button v-if="!authStore.user" @click="handleLogin">
+        Sign in with Google
+      </button>
+
+      <div v-else>
+        {{ authStore.user.displayName }}
+        <button @click="handleLogout" style="margin-left: 8px">
+          Logout
+        </button>
+      </div>
+    </div>
+
+
   </div>
   <div id="beverage-container" style="margin-top: 20px"></div>
 </template>
@@ -74,7 +108,40 @@
 <script setup lang="ts">
 import Beverage from "./components/Beverage.vue";
 import { useBeverageStore } from "./stores/beverageStore";
+import { useAuthStore } from "./stores/authStore";
+import { watch, ref } from "vue";
+
 const beverageStore = useBeverageStore();
+const authStore = useAuthStore();
+const name = ref("");
+
+watch(
+  () => authStore.user,
+  (user) => {
+    beverageStore.setUser(user);
+  },
+  { immediate: true }
+);
+
+const handleLogin = () => {
+  authStore.signInWithGoogle()
+    .then(() => {
+      console.log("Logged in");
+    });
+};
+
+const handleLogout = () => {
+  authStore.logout()
+    .then(() => {
+      console.log("Logged out");
+    });
+};
+
+const handleMakeBeverage = () => {
+  beverageStore.makeBeverage(name.value);
+  name.value = "";
+}
+
 </script>
 
 <style lang="scss">
