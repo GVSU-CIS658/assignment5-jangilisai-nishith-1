@@ -65,81 +65,78 @@
         </template>
       </li>
     </ul>
+    <div v-if="beverageStore.user == null"> <button @click="signIn">Log in to brew</button></div>
+    <div v-if="beverageStore.user !== null">
+      <span>Welcome {{  beverageStore.user.displayName }}</span>
+       <button @click="logOut">Log out</button>
+      </div>
+      <div v-if="beverageStore.user !== null">
+        <input type="text" placeholder="Beverage Name" v-model="bev_name"/>
+         <button @click="makeBeverage( bev_name )" >🍺 Make Beverage</button>
+      </div>
+    
 
-    <input v-model="name" type="text" placeholder="Beverage Name" />
-    <button @click="handleMakeBeverage" :disabled="!authStore.user">🍺 Make Beverage</button>
-
-     <ul>
-      <!-- Custom Beverages  -->
+  </div>
+  <div>
+    <p v-if="beverageStore.user == null">Please sign in before make beverages</p>
+    <ul v-if="beverageStore.user !== null">
       <li>
-        <template v-for="cb in beverageStore.beverages" :key="cb.id">
+        <template v-for="savedBev in beverageStore.userBev" :key="savedBev.savedBev.id">
           <label>
             <input
+              @click="showBeverage(savedBev.savedBev)"
+              name = "beverage"
               type="radio"
-              name="customBeverage"
-              :id="`${cb.id}`"
-              :checked="beverageStore.currentBeverage?.id === cb.id"
-              @change="beverageStore.showBeverage(cb.id)"
             />
-            {{ cb.name }}
+            {{ savedBev.savedBev.name}}
           </label>
         </template>
       </li>
     </ul>
-
-    <div style="margin-bottom: 12px">
-      <button v-if="!authStore.user" @click="handleLogin">
-        Sign in with Google
-      </button>
-
-      <div v-else>
-        {{ authStore.user.displayName }}
-        <button @click="handleLogout" style="margin-left: 8px">
-          Logout
-        </button>
-      </div>
-    </div>
-
 
   </div>
   <div id="beverage-container" style="margin-top: 20px"></div>
 </template>
 
 <script setup lang="ts">
+import {
+  getAuth,
+  UserCredential,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
+
+import { onMounted, onUnmounted } from "vue";
 import Beverage from "./components/Beverage.vue";
 import { useBeverageStore } from "./stores/beverageStore";
-import { useAuthStore } from "./stores/authStore";
-import { watch, ref } from "vue";
 
+const auth = getAuth();
+const provider = new GoogleAuthProvider();
 const beverageStore = useBeverageStore();
-const authStore = useAuthStore();
-const name = ref("");
+const {showBeverage} = useBeverageStore();
+const {setUser} = useBeverageStore();
+const {makeBeverage} = useBeverageStore();
 
-watch(
-  () => authStore.user,
-  (user) => {
-    beverageStore.setUser(user);
-  },
-  { immediate: true }
-);
+var bev_name = "";
 
-const handleLogin = () => {
-  authStore.signInWithGoogle()
-    .then(() => {
-      console.log("Logged in");
-    });
-};
+onMounted(()=>{beverageStore.init()});
+onUnmounted(()=>{beverageStore.unsubcribe()});
 
-const handleLogout = () => {
-  authStore.logout()
-    .then(() => {
-      console.log("Logged out");
-    });
-};
+const signIn = ()=>{
+  signInWithPopup(auth,provider)
+         .then((result: UserCredential) => {GoogleAuthProvider.credentialFromResult(result); 
+                                                   setUser(result.user);
+                                                  })
+         .catch((err: any) => {console.error("Sign in failed ", err)});
+} 
 
-const handleMakeBeverage = () => {
-  beverageStore.makeBeverage(name.value);
-  name.value = "";
+const logOut = () =>{
+  signOut(auth).then(()=>{
+    beverageStore.unsubcribe();
+beverageStore.user = null;
+beverageStore.userBev = [];
+  }).catch(error => console.log("error ", error))
 }
 
 </script>
