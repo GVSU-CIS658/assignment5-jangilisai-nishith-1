@@ -6,7 +6,7 @@ import {
   BeverageType,
 } from "../types/beverage";
 import tempretures from "../data/tempretures.json";
-import {db} from "../firebase.ts";
+import { db } from "../firebase.ts";
 import {
   collection,
   onSnapshot,
@@ -14,10 +14,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import {
-  type User,
-} from 'firebase/auth'
-
+import { type User } from "firebase/auth";
 
 export const useBeverageStore = defineStore("BeverageStore", {
   state: () => ({
@@ -37,103 +34,119 @@ export const useBeverageStore = defineStore("BeverageStore", {
 
   actions: {
     init() {
-      onSnapshot(collection(db, "bases"), (snapshot) =>{
-        this.bases = snapshot.docs.map((doc) =>{
+      onSnapshot(collection(db, "bases"), (snapshot) => {
+        this.bases = snapshot.docs.map((doc) => {
           const data = doc.data();
-          const base: BaseBeverageType = {
+          return {
             id: doc.id,
             name: data.name,
             color: data.color,
           };
-          return base;
         });
-        this.currentBase = this.bases[1];
-      });
-      
-      onSnapshot(collection(db, "creamers"), (snapshot) =>{
-        this.creamers = snapshot.docs.map((doc) =>{
-          const data = doc.data();
-          const creamer: CreamerType = {
-            id: doc.id,
-            name: data.name,
-            color: data.color,
-          };
-          return creamer;
-        });
-        this.currentCreamer = this.creamers[1];
+        this.currentBase = this.bases[0];
       });
 
-
-      onSnapshot(collection(db, "syrups"), (snapshot) =>{
-        this.syrups = snapshot.docs.map((doc) =>{
+      onSnapshot(collection(db, "creamers"), (snapshot) => {
+        this.creamers = snapshot.docs.map((doc) => {
           const data = doc.data();
-          const syrup: SyrupType = {
+          return {
             id: doc.id,
             name: data.name,
             color: data.color,
           };
-          return syrup;
         });
-        this.currentSyrup = this.syrups[1];
+        this.currentCreamer = this.creamers[0];
+      });
+
+      onSnapshot(collection(db, "syrups"), (snapshot) => {
+        this.syrups = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name,
+            color: data.color,
+          };
+        });
+        this.currentSyrup = this.syrups[0];
       });
     },
 
-    setUser(user: User | null){
+    setUser(user: User | null) {
       this.user = user;
+
+      if (!user) {
+        this.beverages = [];
+        return;
+      }
+
       this.showBeverages();
     },
 
     makeBeverage() {
-      if (!this.currentName) return "Please input a name.";
+      if (!this.user) {
+        return "No user logged in, please sign in first.";
+      }
 
-      addDoc(collection(db, "beverages"),{
-          user: this.user?.uid,
-          name: this.currentName,
-          temp: this.currentTemp,
-          base: this.currentBase,
-          syrup: this.currentSyrup,
-          creamer: this.currentCreamer,
+      if (
+        !this.currentName ||
+        !this.currentBase ||
+        !this.currentCreamer ||
+        !this.currentSyrup
+      ) {
+        return "Please complete all beverage options and the name before making a beverage.";
+      }
+
+      addDoc(collection(db, "beverages"), {
+        user: this.user.uid,
+        name: this.currentName,
+        temp: this.currentTemp,
+        base: this.currentBase,
+        syrup: this.currentSyrup,
+        creamer: this.currentCreamer,
       });
-      this.showBeverages();
+
       const tempname = this.currentName;
       this.currentName = "";
-      return "Beverage "+ tempname+ " made successfully!"
+
+      return "Beverage " + tempname + " made successfully!";
     },
 
-    showBeverages(){
+    showBeverages() {
       this.beverages = [];
+
+      if (!this.user) return;
+
       const userBevs = query(
         collection(db, "beverages"),
-        where("user", "==", this.user?.uid)
+        where("user", "==", this.user.uid)
       );
-      let count = 0;
+
       onSnapshot(userBevs, (snapshot) => {
         this.beverages = snapshot.docs.map((doc) => {
           const data = doc.data();
 
-          const beveragesdb: BeverageType = {
-            id: count,
+          return {
+            id: doc.id,
             name: data.name,
             temp: data.temp,
             base: data.base,
             syrup: data.syrup,
             creamer: data.creamer,
           };
-          count++;
-          return beveragesdb;
         });
       });
     },
-    clearBeverages(){
+
+    clearBeverages() {
       this.beverages = [];
     },
+
     showBeverage(beverage: BeverageType) {
       this.currentTemp = beverage.temp;
       this.currentBase = beverage.base;
       this.currentCreamer = beverage.creamer;
       this.currentSyrup = beverage.syrup;
-
+      this.currentName = beverage.name;
     },
-
   },
 });
